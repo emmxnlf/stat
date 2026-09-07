@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人财务统计 - 利润计算器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+.header {
+  background: linear-gradient(135deg, #1677ff, #0958d9);
+  color: white;
+  padding: 25px 20px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.header .subtitle { font-size: 13px; opacity: 0.85; }
+
+/* 顶部利润卡片 */
+.profit-card {
+  background: white;
+  margin: -10px 16px 15px;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  position: relative;
+  z-index: 5;
+}
+.profit-card .label { font-size: 14px; color: #888; }
+.profit-card .amount { font-size: 42px; font-weight: 700; color: #1677ff; margin: 6px 0 12px; }
+.profit-card .amount.negative { color: #e74c3c; }
+.profit-row { display: flex; gap: 15px; }
+.profit-row .item { flex: 1; text-align: center; padding: 10px; background: #f8f9fa; border-radius: 10px; }
+.profit-row .item .num { font-size: 18px; font-weight: 600; }
+.profit-row .item .txt { font-size: 12px; color: #888; margin-top: 3px; }
+.income-color { color: #27ae60 !important; }
+.expense-color { color: #e74c3c !important; }
+
+/* Tab导航 */
+.tabs {
+  display: flex;
+  background: white;
+  margin: 0 16px 15px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 14px;
+  font-size: 15px;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  user-select: none;
+}
+.tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 600; }
+
+/* 面板 */
+.panel { display: none; padding: 0 16px; }
+.panel.active { display: block; }
+
+/* 表单 */
+.form-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.form-group { margin-bottom: 18px; }
+.form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+  transition: border 0.2s;
+  font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 3px rgba(22,119,255,0.1);
+}
+.type-buttons { display: flex; gap: 10px; }
+.type-btn {
+  flex: 1;
+  padding: 12px;
+  text-align: center;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  border: 2px solid #e0e0e0;
+  transition: all 0.2s;
+  user-select: none;
+}
+.type-btn.income-btn.active {
+  background: #e8f8ef;
+  border-color: #27ae60;
+  color: #27ae60;
+  font-weight: 600;
+}
+.type-btn.expense-btn.active {
+  background: #fdeaea;
+  border-color: #e74c3c;
+  color: #e74c3c;
+  font-weight: 600;
+}
+.save-btn {
+  width: 100%;
+  padding: 14px;
+  background: #1677ff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.save-btn:active { background: #0958d9; }
+
+/* 统计面板 */
+.stats-cards { display: flex; gap: 10px; margin-bottom: 15px; }
+.stats-card {
+  flex: 1;
+  background: white;
+  border-radius: 12px;
+  padding: 15px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.stats-card .num { font-size: 20px; font-weight: 700; }
+.stats-card .txt { font-size: 12px; color: #888; margin-top: 4px; }
+
+.filter-row { display: flex; gap: 10px; margin-bottom: 15px; }
+.filter-row select, .filter-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+
+/* 分类汇总 */
+.category-card {
+  background: white;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom: 15px;
+}
+.category-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #333; }
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+.category-item:last-child { border-bottom: none; }
+
+/* 记录列表 */
+.record-list { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.record-item:last-child { border-bottom: none; }
+.record-info { flex: 1; }
+.record-info .summary { font-size: 14px; color: #333; }
+.record-info .meta { font-size: 12px; color: #999; margin-top: 3px; }
+.record-amount { font-size: 16px; font-weight: 600; }
+.record-amount.income { color: #27ae60; }
+.record-amount.expense { color: #e74c3c; }
+.record-delete { 
+  color: #ccc; 
+  margin-left: 10px; 
+  cursor: pointer; 
+  font-size: 18px;
+  padding: 5px;
+  user-select: none;
+}
+.record-delete:hover { color: #e74c3c; }
+.empty-tip { text-align: center; padding: 40px; color: #bbb; font-size: 14px; }
+
+/* 导出按钮 */
+.export-btn {
+  width: 100%;
+  padding: 12px;
+  background: white;
+  color: #1677ff;
+  border: 1.5px dashed #1677ff;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 15px;
+}
+.export-btn:active { background: #f0f7ff; }
+</style>
+</head>
+<body>
+
+<!-- 顶部 -->
+<div class="header">
+  <h1>📊 财务统计 & 利润计算</h1>
+  <div class="subtitle">数据自动保存在本机浏览器中</div>
+</div>
+
+<!-- 利润汇总卡片 -->
+<div class="profit-card" id="profitCard">
+  <div class="label" id="profitLabel">本月净利润</div>
+  <div class="amount" id="profitAmount">¥0.00</div>
+  <div class="profit-row">
+    <div class="item">
+      <div class="num income-color" id="totalIncome">¥0.00</div>
+      <div class="txt">总收入</div>
+    </div>
+    <div class="item">
+      <div class="num expense-color" id="totalExpense">¥0.00</div>
+      <div class="txt">总支出</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tab导航 -->
+<div class="tabs">
+  <div class="tab active" data-tab="record" onclick="switchTab('record')">📝 记账</div>
+  <div class="tab" data-tab="list" onclick="switchTab('list')">📋 明细</div>
+  <div class="tab" data-tab="stats" onclick="switchTab('stats')">📈 统计</div>
+</div>
+
+<!-- 记账面板 -->
+<div class="panel active" id="panel-record">
+  <div class="form-card">
+    <div class="form-group">
+      <label>类型</label>
+      <div class="type-buttons">
+        <div class="type-btn income-btn active" id="btnIncome" onclick="setType('income')">💰 收入</div>
+        <div class="type-btn expense-btn" id="btnExpense" onclick="setType('expense')">💸 支出</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>金额（元）</label>
+      <input type="number" id="inputAmount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+    </div>
+    <div class="form-group">
+      <label>分类</label>
+      <select id="inputCategory">
+        <option value="工资">工资</option>
+        <option value="奖金">奖金</option>
+        <option value="生活费">生活费</option>
+        <option value="餐饮">餐饮</option>
+        <option value="交通">交通</option>
+        <option value="购物">购物</option>
+        <option value="房租">房租</option>
+        <option value="水电">水电</option>
+        <option value="娱乐">娱乐</option>
+        <option value="医疗">医疗</option>
+        <option value="教育">教育</option>
+        <option value="其他">其他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>备注（可不填）</label>
+      <input type="text" id="inputNote" placeholder="例如：7月工资、买电脑...">
+    </div>
+    <div class="form-group">
+      <label>日期</label>
+      <input type="date" id="inputDate">
+    </div>
+    <button class="save-btn" onclick="saveRecord()">保存记录</button>
+  </div>
+</div>
+
+<!-- 明细面板 -->
+<div class="panel" id="panel-list">
+  <div class="filter-row">
+    <select id="filterMonth" onchange="renderList()"></select>
+  </div>
+  <div class="record-list" id="recordList"></div>
+</div>
+
+<!-- 统计面板 -->
+<div class="panel" id="panel-stats">
+  <div class="filter-row">
+    <select id="statsMonth" onchange="renderStats()"></select>
+    <input type="text" id="statsFilter" placeholder="输入分类名筛选" oninput="renderStats()">
+  </div>
+  <div class="stats-cards">
+    <div class="stats-card">
+      <div class="num income-color" id="statsIncome">¥0</div>
+      <div class="txt">总收入</div>
+    </div>
+    <div class="stats-card">
+      <div class="num expense-color" id="statsExpense">¥0</div>
+      <div class="txt">总支出</div>
+    </div>
+    <div class="stats-card">
+      <div class="num" id="statsProfit" style="color:#1677ff;">¥0</div>
+      <div class="txt">净利润</div>
+    </div>
+  </div>
+  <div class="category-card" id="categoryCard">
+    <div class="category-title">📂 分类汇总</div>
+    <div id="categoryList"></div>
+  </div>
+  <button class="export-btn" onclick="exportCSV()">📥 导出本月数据（CSV）</button>
+</div>
+
+<script>
+// ============ 数据存储 ============
+const STORAGE_KEY = 'personal_finance_records';
+
+// 获取所有记录
+function getRecords() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch(e) {
+    return [];
+  }
+}
+
+// 保存所有记录
+function saveRecords(records) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+}
+
+// ============ 全局变量 ============
+let currentType = 'income';
+let currentMonth = ''; // YYYY-MM
+
+// ============ 初始化 ============
+function init() {
+  const now = new Date();
+  currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  
+  // 设置默认日期为今天
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  document.getElementById('inputDate').value = todayStr;
+  
+  // 填充月份筛选器
+  fillMonthOptions('filterMonth');
+  fillMonthOptions('statsMonth');
+  
+  // 设置默认选中的月份
+  document.getElementById('filterMonth').value = currentMonth;
+  document.getElementById('statsMonth').value = currentMonth;
+  
+  // 渲染
+  updateProfitCard();
+  renderList();
+  renderStats();
+}
+
+// 填充月份下拉框
+function fillMonthOptions(elementId) {
+  const records = getRecords();
+  const months = new Set();
+  
+  // 收集所有有记录的月份
+  records.forEach(r => {
+    const d = new Date(r.date);
+    months.add(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  });
+  
+  // 加上当前月份
+  months.add(currentMonth);
+  
+  // 按时间倒序排列
+  const sortedMonths = Array.from(months).sort().reverse();
+  
+  const select = document.getElementById(elementId);
+  select.innerHTML = sortedMonths.map(m => {
+    const [y, mo] = m.split('-');
+    const label = `${y}年${parseInt(mo)}月`;
+    const selected = m === currentMonth ? 'selected' : '';
+    return `<option value="${m}" ${selected}>${label}</option>`;
+  }).join('');
+}
+
+// ============ 标签切换 ============
+function switchTab(tabName) {
+  // 切换按钮状态
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  // 切换面板
+  document.querySelectorAll('.panel').forEach(p => {
+    p.classList.remove('active');
+  });
+  document.getElementById('panel-' + tabName).classList.add('active');
+  
+  // 刷新数据
+  if (tabName === 'list') renderList();
+  if (tabName === 'stats') renderStats();
+  updateProfitCard();
+}
+
+// ============ 类型切换 ============
+function setType(type) {
+  currentType = type;
+  document.getElementById('btnIncome').classList.toggle('active', type === 'income');
+  document.getElementById('btnExpense').classList.toggle('active', type === 'expense');
+}
+
+// ============ 保存记录 ============
+function saveRecord() {
+  const amount = parseFloat(document.getElementById('inputAmount').value);
+  const category = document.getElementById('inputCategory').value;
+  const note = document.getElementById('inputNote').value.trim();
+  const date = document.getElementById('inputDate').value;
+  
+  // 验证
+  if (!amount || amount <= 0) {
+    alert('请输入有效金额！');
+    return;
+  }
+  if (!date) {
+    alert('请选择日期！');
+    return;
+  }
+  
+  const record = {
+    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+    type: currentType,
+    amount: amount,
+    category: category,
+    note: note || category,
+    date: date,
+    createTime: new Date().toISOString()
+  };
+
+const records = getRecords();
+  records.push(record);
+  saveRecords(records);
+  
+  // 清空输入
+  document.getElementById('inputAmount').value = '';
+  document.getElementById('inputNote').value = '';
+  
+  // 刷新
+  fillMonthOptions('filterMonth');
+  fillMonthOptions('statsMonth');
+  document.getElementById('filterMonth').value = currentMonth;
+  document.getElementById('statsMonth').value = currentMonth;
+  updateProfitCard();
+  renderList();
+  renderStats();
+  
+  // 简单提示
+  const confirmEl = document.createElement('div');
+  confirmEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.75);color:white;padding:16px 28px;border-radius:10px;font-size:15px;z-index:999;';
+  confirmEl.textContent = '✅ 已保存';
+  document.body.appendChild(confirmEl);
+  setTimeout(() => confirmEl.remove(), 800);
+}
+
+// ============ 更新利润卡片 ============
+function updateProfitCard() {
+  const [year, month] = currentMonth.split('-');
+  const records = getRecords();
+  
+  let income = 0;
+  let expense = 0;
+  
+  records.forEach(r => {
+    const d = new Date(r.date);
+    if (d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month) - 1) {
+      if (r.type === 'income') income += r.amount;
+      else expense += r.amount;
+    }
+  });
+  
+  const profit = income - expense;
+  
+  document.getElementById('totalIncome').textContent = '¥' + income.toFixed(2);
+  document.getElementById('totalExpense').textContent = '¥' + expense.toFixed(2);
+  
+  const profitEl = document.getElementById('profitAmount');
+  profitEl.textContent = '¥' + profit.toFixed(2);
+  profitEl.classList.toggle('negative', profit < 0);
+  
+  document.getElementById('profitLabel').textContent = `${parseInt(month)}月净利润`;
+}
+
+// ============ 渲染明细列表 ============
+function renderList() {
+  const month = document.getElementById('filterMonth').value;
+  const records = getRecords();
+  
+  // 筛选该月份的记录
+  const filtered = records.filter(r => {
+    const d = new Date(r.date);
+    const rm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return rm === month;
+  }).sort((a, b) => b.date.localeCompare(a.date));
+  
+  const listEl = document.getElementById('recordList');
+  
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="empty-tip">📭 本月暂无记录</div>';
+    return;
+  }
+  
+  listEl.innerHTML = filtered.map(r => `
+    <div class="record-item">
+      <div class="record-info">
+        <div class="summary">${r.category}${r.note && r.note !== r.category ? ' - ' + r.note : ''}</div>
+        <div class="meta">${r.date} · ${r.type === 'income' ? '收入' : '支出'}</div>
+      </div>
+      <div class="record-amount ${r.type}">
+        ${r.type === 'income' ? '+' : '-'}¥${r.amount.toFixed(2)}
+      </div>
+      <span class="record-delete" onclick="deleteRecord('${r.id}')" title="删除">✕</span>
+    </div>
+  `).join('');
+}
+
+// ============ 删除记录 ============
+function deleteRecord(id) {
+  if (!confirm('确定要删除这条记录吗？')) return;
+  
+  let records = getRecords();
+  records = records.filter(r => r.id !== id);
+  saveRecords(records);
+  
+  fillMonthOptions('filterMonth');
+  fillMonthOptions('statsMonth');
+  updateProfitCard();
+  renderList();
+  renderStats();
+}
+
+// ============ 渲染统计 ============
+function renderStats() {
+  const month = document.getElementById('statsMonth').value;
+  const filterText = document.getElementById('statsFilter').value.trim().toLowerCase();
+  const records = getRecords();
+  
+  // 筛选月份
+  let filtered = records.filter(r => {
+    const d = new Date(r.date);
+    const rm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return rm === month;
+  });
+  
+  // 按分类名筛选
+  if (filterText) {
+    filtered = filtered.filter(r => r.category.toLowerCase().includes(filterText));
+  }
+  
+  let income = 0;
+  let expense = 0;
+  const categoryMap = {};
+  
+  filtered.forEach(r => {
+    if (r.type === 'income') income += r.amount;
+    else expense += r.amount;
+    
+    if (!categoryMap[r.category]) {
+      categoryMap[r.category] = { income: 0, expense: 0 };
+    }
+    if (r.type === 'income') {
+      categoryMap[r.category].income += r.amount;
+    } else {
+      categoryMap[r.category].expense += r.amount;
+    }
+  });
+  
+  const profit = income - expense;
+  
+  document.getElementById('statsIncome').textContent = '¥' + income.toFixed(2);
+  document.getElementById('statsExpense').textContent = '¥' + expense.toFixed(2);
+  document.getElementById('statsProfit').textContent = '¥' + profit.toFixed(2);
+  
+  // 渲染分类汇总
+  const categoryListEl = document.getElementById('categoryList');
+  const categories = Object.keys(categoryMap);
+  
+  if (categories.length === 0) {
+    categoryListEl.innerHTML = '<div class="empty-tip">暂无数据</div>';
+    return;
+  }
+  
+  // 按总金额排序
+  categories.sort((a, b) => {
+    const totalA = categoryMap[a].income + categoryMap[a].expense;
+    const totalB = categoryMap[b].income + categoryMap[b].expense;
+    return totalB - totalA;
+  });
+  
+  categoryListEl.innerHTML = categories.map(cat => {
+    const data = categoryMap[cat];
+    let html = `<div class="category-item"><span>${cat}</span>`;
+    if (data.income > 0) {
+      html += `<span class="income-color">收入: ¥${data.income.toFixed(2)}</span>`;
+    }
+    if (data.expense > 0) {
+      html += `<span class="expense-color">支出: ¥${data.expense.toFixed(2)}</span>`;
+    }
+    if (data.income === 0 && data.expense === 0) {
+      html += `<span>-</span>`;
+    }
+    html += '</div>';
+    return html;
+  }).join('');
+}
+
+// ============ 导出CSV ============
+function exportCSV() {
+  const month = document.getElementById('statsMonth').value;
+  const records = getRecords();
+  
+  const filtered = records.filter(r => {
+    const d = new Date(r.date);
+    const rm = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return rm === month;
+  }).sort((a, b) => a.date.localeCompare(b.date));
+  
+  if (filtered.length === 0) {
+    alert('该月份没有数据可导出');
+    return;
+  }
+  
+  // 构建CSV内容
+  let csv = '\ufeff'; // BOM让Excel正确识别中文
+  csv += '日期,类型,分类,金额,备注\n';
+  filtered.forEach(r => {
+    csv += `${r.date},${r.type === 'income' ? '收入' : '支出'},${r.category},${r.amount.toFixed(2)},${r.note || ''}\n`;
+  });
+  
+  // 下载
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `财务记录_${month}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+// ============ 启动 ============
+init();
+</script>
+</body>
+</html>
